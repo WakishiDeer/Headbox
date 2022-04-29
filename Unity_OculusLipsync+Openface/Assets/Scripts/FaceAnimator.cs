@@ -30,7 +30,7 @@ public class FaceAnimator : MonoBehaviour
     private Calculator calc = new Calculator();
     private float[] blendshapeMovingAverage;
     private bool hasNewDataUpdate = false;
-    private bool hasNewBlendshapeVals  = false;
+    private bool hasNewBlendshapeVals = false;
 
     public InterpolationType BlendshapeInterpolationType = InterpolationType.EaseInOut;
 
@@ -40,7 +40,8 @@ public class FaceAnimator : MonoBehaviour
     [Tooltip("The JSON file that contains the input-to-blendshape blendshape mapping.")]
     public TextAsset BlendshapeMappingFile;
 
-    public SerializedBlendshapeMapping[] mappedBlendshapes; 
+    public SerializedBlendshapeMapping[] mappedBlendshapes;
+
     void Awake()
     {
         // get MB / MH model
@@ -64,7 +65,7 @@ public class FaceAnimator : MonoBehaviour
 
         var serializedMapping = JsonUtility.FromJson<SerializedBlendshapeMappingData>(BlendshapeMappingFile.ToString());
         mappedBlendshapes = serializedMapping.data;
-        
+
         overallBlendshapes = new HashSet<int>();
         HookIntoZeroMQRelay();
     }
@@ -72,19 +73,18 @@ public class FaceAnimator : MonoBehaviour
     private void Update()
     {
         if (hasNewDataUpdate)
-        {            
+        {
             curFrameBlendshapeVals = new Dictionary<int, float>();
             // Deal with the timestamps, head + eye positions and rots, etc.
 
             Vector3 headRot = new Vector3(frameData.d[3] * Mathf.Rad2Deg, // Represents Up/down in OpenFace
-                               frameData.d[4] * Mathf.Rad2Deg, // Turn
-                               frameData.d[5] * Mathf.Rad2Deg); // Tilt
+                frameData.d[4] * Mathf.Rad2Deg, // Turn
+                frameData.d[5] * Mathf.Rad2Deg); // Tilt
             // Convert world corrdinate of `headRot` into local one, using `head_bone`
             Vector3 headRotLocal = head_bone.transform.InverseTransformDirection(headRot);
             head_bone.transform.localRotation = Quaternion.Slerp(head_bone.transform.localRotation,
                 Quaternion.Euler(headRotLocal),
                 Time.deltaTime * headRotationSpeed);
-            
 
 
             foreach (var blend in overallBlendshapes)
@@ -119,6 +119,7 @@ public class FaceAnimator : MonoBehaviour
                         {
                             curFrameBlendshapeVals[blendDictStringToInt[blendshape.targetBlendshape]] = 0f;
                         }
+
                         if (!overallBlendshapes.Contains(blendDictStringToInt[blendshape.targetBlendshape]))
                         {
                             overallBlendshapes.Add(blendDictStringToInt[blendshape.targetBlendshape]);
@@ -126,6 +127,7 @@ public class FaceAnimator : MonoBehaviour
                     }
                 }
             }
+
             hasNewDataUpdate = false;
             hasNewBlendshapeVals = true;
         }
@@ -140,7 +142,7 @@ public class FaceAnimator : MonoBehaviour
         {
             AnimationDataFrame outgoingFrame = actionUnitQueue.Dequeue();
             // calculate moving average to make avatar-movement smoothness
-			blendshapeMovingAverage = calc.CalcMovingAverage(actionUnitQueue, auNum);
+            blendshapeMovingAverage = calc.CalcMovingAverage(actionUnitQueue, auNum);
         }
     }
 
@@ -159,7 +161,9 @@ public class FaceAnimator : MonoBehaviour
 
         foreach (var curFrameBlendShape in curFrameBlendshapeVals)
         {
-            float blendshapeVal = Interpolate(BlendshapeInterpolationType, skinnedMeshRenderer.GetBlendShapeWeight(curFrameBlendShape.Key), curFrameBlendShape.Value, Time.deltaTime * blendshapeInterpolationSpeed);
+            float blendshapeVal = Interpolate(BlendshapeInterpolationType,
+                skinnedMeshRenderer.GetBlendShapeWeight(curFrameBlendShape.Key), curFrameBlendShape.Value,
+                Time.deltaTime * blendshapeInterpolationSpeed);
             skinnedMeshRenderer.SetBlendShapeWeight(curFrameBlendShape.Key, blendshapeVal);
         }
     }
@@ -167,7 +171,7 @@ public class FaceAnimator : MonoBehaviour
     public void OnDataUpdated(AnimationDataFrame lastDataSet)
     {
         frameData = lastDataSet;
-		UpdateActionUnitQueue(actionUnitQueue, frameData.d.Length);
+        UpdateActionUnitQueue(actionUnitQueue, frameData.d.Length);
         hasNewDataUpdate = true;
     }
 
@@ -183,16 +187,16 @@ public class FaceAnimator : MonoBehaviour
 
     private bool IsCurrentlySpeaking()
     {
-       /* foreach (var viseme in LipSyncComponent.MappedVisemes)
-        {
-            foreach (var blendshape in viseme.WeightedVisemes)
-            {
-                if (skinnedMeshRenderer.GetBlendShapeWeight(blendDictStringToInt[blendshape.targetBlendshape]) > speakingThreshold)
-                {
-                    return true;
-                }
-            }
-        }*/
+        /* foreach (var viseme in LipSyncComponent.MappedVisemes)
+         {
+             foreach (var blendshape in viseme.WeightedVisemes)
+             {
+                 if (skinnedMeshRenderer.GetBlendShapeWeight(blendDictStringToInt[blendshape.targetBlendshape]) > speakingThreshold)
+                 {
+                     return true;
+                 }
+             }
+         }*/
 
         //foreach (var blendshape in LipSyncComponent.LaughterBlendTargets)
         //{
@@ -204,6 +208,7 @@ public class FaceAnimator : MonoBehaviour
 
         return false;
     }
+
     public enum InterpolationType
     {
         Linear = 0,
@@ -236,7 +241,8 @@ public class FaceAnimator : MonoBehaviour
                 return Mathf.SmoothStep(from, to, t);
             case InterpolationType.Boing:
                 t = Mathf.Clamp01(t);
-                t = (Mathf.Sin(t * Mathf.PI * (0.2f + 2.5f * t * t * t)) * Mathf.Pow(1f - t, 2.2f) + t) * (1f + (1.2f * (1f - t)));
+                t = (Mathf.Sin(t * Mathf.PI * (0.2f + 2.5f * t * t * t)) * Mathf.Pow(1f - t, 2.2f) + t) *
+                    (1f + (1.2f * (1f - t)));
                 return from + (to - from) * t;
             case InterpolationType.Hermite:
                 return Mathf.Lerp(from, to, t * t * (3.0f - 2.0f * t));
@@ -245,8 +251,6 @@ public class FaceAnimator : MonoBehaviour
                 return from;
         }
     }
-    
-
 }
 
 [Serializable]
