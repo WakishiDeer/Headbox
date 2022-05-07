@@ -1,5 +1,4 @@
-﻿
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -10,9 +9,10 @@ using UnityEngine.PlayerLoop;
 /// TODO: Figure out how we're going to figure out what the sources of data are actually from. 
 /// Currently, I think this will be done by looking at the array length
 /// </summary>
-public class ZeroMQRelay : MonoBehaviour 
+public class ZeroMQRelay : MonoBehaviour
 {
     public static Action<AnimationDataFrame> OpenFaceDataReceived;
+    public static Action<AudioDataFrame> AudioDataReceived;
 
     public static string[] OpenFaceDataColumns =
     {
@@ -47,24 +47,26 @@ public class ZeroMQRelay : MonoBehaviour
         "AU26_JawDrop",
         "AU45_Blink"
     };
-    
+
     private void OnEnable()
     {
         // new delegation is added here
-        ZeroMQReceiver.NewZeroMQMessageReceivedEvent += OnNewMessageReceived;
+        ZeroMQReceiver.NewZeroMQMessageReceivedEventOpenFace += OnNewMessageReceivedOpenFace;
+        ZeroMQReceiver.NewZeroMQMessageReceivedEventAudio += OnNewMessageReceivedAudio;
     }
 
     private void OnDisable()
     {
-        ZeroMQReceiver.NewZeroMQMessageReceivedEvent -= OnNewMessageReceived;
+        ZeroMQReceiver.NewZeroMQMessageReceivedEventOpenFace -= OnNewMessageReceivedOpenFace;
+        ZeroMQReceiver.NewZeroMQMessageReceivedEventAudio -= OnNewMessageReceivedAudio;
     }
 
-    private void OnNewMessageReceived(List<string> messages)
+    private void OnNewMessageReceivedOpenFace(List<string> messages)
     {
         AnimationDataFrame frame;
         foreach (string message in messages)
         {
-            frame = DeserializeString(message);
+            frame = DeserializeStringOpenFace(message);
             if (frame.d.Length == (OpenFaceDataColumns.Length - 1))
             {
                 OpenFaceDataReceived?.Invoke(frame);
@@ -72,11 +74,26 @@ public class ZeroMQRelay : MonoBehaviour
         }
     }
 
-    private AnimationDataFrame DeserializeString(string message)
+    private void OnNewMessageReceivedAudio(List<string> messages)
+    {
+        AudioDataFrame frame;
+        foreach (string message in messages)
+        {
+            frame = DeserializeStringAudio(message);
+            AudioDataReceived?.Invoke(frame);
+        }
+    }
+
+    private AnimationDataFrame DeserializeStringOpenFace(string message)
     {
         var unescaped = Regex.Unescape(message);
         AnimationDataFrame paf = JsonConvert.DeserializeObject<AnimationDataFrame>(unescaped);
-        paf.dMovAve = new float[paf.d.Length];   // initialize the array of moving average
+        return paf;
+    }
+
+    private AudioDataFrame DeserializeStringAudio(string message)
+    {
+        AudioDataFrame paf = JsonConvert.DeserializeObject<AudioDataFrame>(message);
         return paf;
     }
 }
@@ -86,5 +103,12 @@ public struct AnimationDataFrame
 {
     public float t;
     public float[] d;
-    public float[] dMovAve;
+}
+
+[Serializable]
+public struct AudioDataFrame
+{
+    public float t;
+    public float energy_db_data;
+    public float f0_data;
 }

@@ -6,22 +6,18 @@ using UnityEngine;
 
 public class ZeroMQReceiverOpenFace : ZeroMQReceiver
 {
-    public string OriginPort = "5571";
+    private string OriginPort = "5571";
 
     private Thread ZeroMQListenerThread;
 
     void Awake()
     {
-        if (StartListeningOnAwake)
+        if (startListeningOnAwake)
         {
             StartListening();
         }
     }
 
-    private void OnDestroy()
-    {
-        StopListening();
-    }
 
     void Update()
     {
@@ -30,7 +26,7 @@ public class ZeroMQReceiverOpenFace : ZeroMQReceiver
             List<string> msg_list;
             if (ZeroMQQueue.TryDequeue(out msg_list))
             {
-                NewZeroMQMessageReceivedEvent?.Invoke(msg_list);
+                NewZeroMQMessageReceivedEventOpenFace?.Invoke(msg_list);
             }
             else
             {
@@ -39,7 +35,13 @@ public class ZeroMQReceiverOpenFace : ZeroMQReceiver
         }
     }
 
-    override protected void ListenerWork()
+    private void OnDestroy()
+    {
+        StopListening();
+    }
+
+
+    protected override void ListenerWork()
     {
         AsyncIO.ForceDotNet.Force();
         Debug.Log("Waiting for subscribers");
@@ -80,14 +82,14 @@ public class ZeroMQReceiverOpenFace : ZeroMQReceiver
         NetMQConfig.Cleanup();
     }
 
-    override protected void StartListening()
+    protected override void StartListening()
     {
         ListenerThreadCancelled = false;
         ZeroMQListenerThread = new Thread(ListenerWork);
         ZeroMQListenerThread.Start();
     }
 
-    override protected void StopListening()
+    protected override void StopListening()
     {
         ListenerThreadCancelled = true;
         ZeroMQListenerThread.Join();
