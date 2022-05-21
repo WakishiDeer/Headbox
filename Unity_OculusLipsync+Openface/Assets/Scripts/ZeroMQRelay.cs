@@ -109,6 +109,8 @@ public struct AnimationDataFrame
 public struct AudioDataFrame
 {
     public float t;
-    public float energyDbData;
-    public float f0Data;
+    public float averageRms;
+    public float averageRmsDb;
+    public float stdRmsDb;
+    public float averageF0;
 }
