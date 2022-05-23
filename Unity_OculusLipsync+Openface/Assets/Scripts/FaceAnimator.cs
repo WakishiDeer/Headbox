@@ -22,7 +22,8 @@ public class FaceAnimator : MonoBehaviour
     public float headRotationMultiplier = .1f;
     int blendShapeCount = 0;
 
-    private AnimationDataFrame frameData;
+    private AnimationDataFrame frameDataOpenFace;
+    private AudioDataFrame frameDataAudio;
 
     private int maxSizeQueue = 10;
     private Queue<AnimationDataFrame> actionUnitQueue = new Queue<AnimationDataFrame>(); // Store data for action unit 
@@ -68,6 +69,7 @@ public class FaceAnimator : MonoBehaviour
 
         overallBlendshapes = new HashSet<int>();
         HookIntoZeroMQRelay();
+        HookIntoAudioRelay();
     }
 
     private void Update()
@@ -77,55 +79,29 @@ public class FaceAnimator : MonoBehaviour
             curFrameBlendshapeVals = new Dictionary<int, float>();
             // Deal with the timestamps, head + eye positions and rots, etc.
 
-            Vector3 headRot = new Vector3(frameData.d[3] * Mathf.Rad2Deg, // Represents Up/down in OpenFace
-                frameData.d[4] * Mathf.Rad2Deg, // Turn
-                frameData.d[5] * Mathf.Rad2Deg); // Tilt
+            Vector3 headRot = new Vector3(frameDataOpenFace.d[3] * Mathf.Rad2Deg, // Represents Up/down in OpenFace
+                frameDataOpenFace.d[4] * Mathf.Rad2Deg, // Turn
+                frameDataOpenFace.d[5] * Mathf.Rad2Deg); // Tilt
             // Convert world corrdinate of `headRot` into local one, using `head_bone`
             Vector3 headRotLocal = head_bone.transform.InverseTransformDirection(headRot);
             head_bone.transform.localRotation = Quaternion.Slerp(head_bone.transform.localRotation,
                 Quaternion.Euler(headRotLocal),
                 Time.deltaTime * headRotationSpeed);
 
-
-            foreach (var blend in overallBlendshapes)
+            bool modulationMode = false;
+            if (modulationMode)
             {
-                curFrameBlendshapeVals[blend] = 0f;
+                Debug.Log("pass this");
+                // CalcModulatedBlendshape();
             }
-
-            // Take care of the blendshape frames
-            for (int i = 12; i < frameData.d.Length; i++)
+            else
             {
-                var mapping = mappedBlendshapes[i - 12];
-                if (frameData.d[i] > 0 && blendshapeMovingAverage != null)
-                {
-                    foreach (var blendshape in mapping.weightedBlendshapes)
-                    {
-                        float val;
-                        // val = ((frameData.d[i] / 5.0f) * 100f) * blendshape.weight;
-                        val = ((blendshapeMovingAverage[i] / 6.0f) * 100f) * blendshape.weight;
-                        // check if val is greater than predefined threshold
-                        if (val >= mapping.threshold)
-                        {
-                            if (curFrameBlendshapeVals.ContainsKey(blendDictStringToInt[blendshape.targetBlendshape]))
-                            {
-                                curFrameBlendshapeVals[blendDictStringToInt[blendshape.targetBlendshape]] += val;
-                            }
-                            else
-                            {
-                                curFrameBlendshapeVals[blendDictStringToInt[blendshape.targetBlendshape]] = val;
-                            }
-                        }
-                        else
-                        {
-                            curFrameBlendshapeVals[blendDictStringToInt[blendshape.targetBlendshape]] = 0f;
-                        }
-
-                        if (!overallBlendshapes.Contains(blendDictStringToInt[blendshape.targetBlendshape]))
-                        {
-                            overallBlendshapes.Add(blendDictStringToInt[blendshape.targetBlendshape]);
-                        }
-                    }
-                }
+                // `overallBlendshapes` and `curFrameBlendshapeVals` are passed by reference, because values are updated
+                calc.CalcBlendshapeValue(overallBlendshapes: ref overallBlendshapes,
+                    curFrameBlendshapeVals: ref curFrameBlendshapeVals,
+                    frameDataOpenFace: frameDataOpenFace, frameDataAudio: frameDataAudio,
+                    mappedBlendshapes: mappedBlendshapes, blendshapeMovingAverage: blendshapeMovingAverage,
+                    blendDictStringToInt: blendDictStringToInt, doModulate: true);
             }
 
             hasNewDataUpdate = false;
@@ -136,7 +112,7 @@ public class FaceAnimator : MonoBehaviour
     private void UpdateActionUnitQueue(Queue<AnimationDataFrame> actionUnitQueue, int auNum)
     {
         // update blendshape average
-        actionUnitQueue.Enqueue(frameData); // incomingFrame
+        actionUnitQueue.Enqueue(frameDataOpenFace); // incomingFrame
         // check if data of queue is over 
         if (actionUnitQueue.Count > maxSizeQueue)
         {
@@ -168,21 +144,36 @@ public class FaceAnimator : MonoBehaviour
         }
     }
 
-    public void OnDataUpdated(AnimationDataFrame lastDataSet)
+    public void OnAnimationDataUpdated(AnimationDataFrame lastDataSet)
     {
-        frameData = lastDataSet;
-        UpdateActionUnitQueue(actionUnitQueue, frameData.d.Length);
+        frameDataOpenFace = lastDataSet;
+        UpdateActionUnitQueue(actionUnitQueue, frameDataOpenFace.d.Length);
         hasNewDataUpdate = true;
+    }
+
+    public void OnAudioDataUpdated(AudioDataFrame lastDataset)
+    {
+        frameDataAudio = lastDataset;
     }
 
     public void HookIntoZeroMQRelay()
     {
-        ZeroMQRelay.OpenFaceDataReceived += OnDataUpdated;
+        ZeroMQRelay.OpenFaceDataReceived += OnAnimationDataUpdated;
     }
 
     public void UnhookFromZeroMQRelay()
     {
-        ZeroMQRelay.OpenFaceDataReceived -= OnDataUpdated;
+        ZeroMQRelay.OpenFaceDataReceived -= OnAnimationDataUpdated;
+    }
+
+    public void HookIntoAudioRelay()
+    {
+        ZeroMQRelay.AudioDataReceived += OnAudioDataUpdated;
+    }
+
+    public void UnhookIntoAudioRelay()
+    {
+        ZeroMQRelay.AudioDataReceived -= OnAudioDataUpdated;
     }
 
     private bool IsCurrentlySpeaking()
@@ -253,6 +244,7 @@ public class FaceAnimator : MonoBehaviour
     }
 }
 
+// Refer to the `OpenFace_Blendshape_Mapping.json`
 [Serializable]
 public class AffectedBlendshape
 {
