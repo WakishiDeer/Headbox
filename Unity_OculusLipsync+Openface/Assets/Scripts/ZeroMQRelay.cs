@@ -48,11 +48,6 @@ public class ZeroMQRelay : MonoBehaviour
         "AU45_Blink"
     };
 
-    public static string[] ModulationTargetColumns =
-    {
-        "AU25_LipsPart",
-        "AU26_JawDrop"
-    };
 
     private void OnEnable()
     {
@@ -115,9 +110,11 @@ public struct AnimationDataFrame
 public struct AudioDataFrame
 {
     public float t;
+    public int totalVoicedRegionNum;
     public float totalVoicedTimeMs;
     public float averageRms;
     public float averageRmsDb;
+    public float averageRmsDbTotal;
     public float stdRmsDb;
     public float stdRmsDbTotal;
     public float averageF0;

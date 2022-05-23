@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,6 +9,19 @@ using UnityEngine;
 /// </summary>
 public class Calculator
 {
+    private float thresholdTotalVoicedTimeMs;
+    private string[] modulationTargetColumns;
+
+    public Calculator()
+    {
+        this.thresholdTotalVoicedTimeMs = 10;
+        this.modulationTargetColumns = new[]
+        {
+            "AU25_LipsPart",
+            "AU26_JawDrop"
+        };
+    }
+
     /// <summary>
     /// Calculate moving average for each action unit.
     /// </summary>
@@ -42,8 +56,7 @@ public class Calculator
         ref Dictionary<int, float> curFrameBlendshapeVals,
         AnimationDataFrame frameDataOpenFace, AudioDataFrame frameDataAudio,
         SerializedBlendshapeMapping[] mappedBlendshapes,
-        float[] blendshapeMovingAverage, Dictionary<string, int> blendDictStringToInt,
-        bool doModulate)
+        float[] blendshapeMovingAverage, Dictionary<string, int> blendDictStringToInt, bool doModulation)
     {
         foreach (var blend in overallBlendshapes)
         {
@@ -58,12 +71,20 @@ public class Calculator
             {
                 foreach (var blendshape in mapping.weightedBlendshapes)
                 {
-                    // todo: separate blendshapes to apply moving average or not ones
                     float val = .0f;
-                    if (doModulate)
-                        // val = ((frameData.d[i] / 5.0f) * 100f) * blendshape.weight;
 
-                        val = ((blendshapeMovingAverage[i] / 6.0f) * 100f) * blendshape.weight;
+                    // check if blendshape should be modulated one or others
+                    if (this.modulationTargetColumns.Contains(mapping.inputName) && doModulation)
+                    {
+                        // special blendshape value calc
+                        val = ((blendshapeMovingAverage[i] / 5.0f) * 100f) *
+                              blendshape.weight * CalcModulatedBlendshapeWeight(frameDataAudio: frameDataAudio);
+                    }
+                    else
+                    {
+                        // default blendshape value calc
+                        val = ((blendshapeMovingAverage[i] / 5.0f) * 100f) * blendshape.weight;
+                    }
 
                     // check if val is greater than predefined threshold
                     if (val >= mapping.threshold)
@@ -96,9 +117,24 @@ public class Calculator
 
     /// <summary>
     /// Calculate the amount of modulation for each blendshapes based on audio features.
+    /// For now, it will change weight of blendshape.
+    /// <returns>weight of blendshape value with float</returns>
     /// </summary>
-    public float CalcModulatedBlendshape()
+    private float CalcModulatedBlendshapeWeight(AudioDataFrame frameDataAudio)
     {
-        return .0f;
+        float weight = .0f;
+        // if detecting not good speaking 
+        if (frameDataAudio.stdRmsDb > frameDataAudio.stdRmsDbTotal ||
+            frameDataAudio.averageRmsDbTotal > frameDataAudio.averageRmsDb * 1.1)
+        {
+            Debug.Log("Make your mouth larger!");
+            weight = 3.0f;
+        }
+        else
+        {
+            weight = 1.0f; // default weight
+        }
+
+        return weight;
     }
 }

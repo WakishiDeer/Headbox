@@ -28,10 +28,11 @@ public class FaceAnimator : MonoBehaviour
     private int maxSizeQueue = 10;
     private Queue<AnimationDataFrame> actionUnitQueue = new Queue<AnimationDataFrame>(); // Store data for action unit 
 
-    private Calculator calc = new Calculator();
+    public Calculator calc = new Calculator();
     private float[] blendshapeMovingAverage;
     private bool hasNewDataUpdate = false;
     private bool hasNewBlendshapeVals = false;
+    private bool doModulation = false;
 
     public InterpolationType BlendshapeInterpolationType = InterpolationType.EaseInOut;
 
@@ -88,21 +89,13 @@ public class FaceAnimator : MonoBehaviour
                 Quaternion.Euler(headRotLocal),
                 Time.deltaTime * headRotationSpeed);
 
-            bool modulationMode = false;
-            if (modulationMode)
-            {
-                Debug.Log("pass this");
-                // CalcModulatedBlendshape();
-            }
-            else
-            {
-                // `overallBlendshapes` and `curFrameBlendshapeVals` are passed by reference, because values are updated
-                calc.CalcBlendshapeValue(overallBlendshapes: ref overallBlendshapes,
-                    curFrameBlendshapeVals: ref curFrameBlendshapeVals,
-                    frameDataOpenFace: frameDataOpenFace, frameDataAudio: frameDataAudio,
-                    mappedBlendshapes: mappedBlendshapes, blendshapeMovingAverage: blendshapeMovingAverage,
-                    blendDictStringToInt: blendDictStringToInt, doModulate: true);
-            }
+            // Calculation of blendshape value
+            // NOTE: `overallBlendshapes` and `curFrameBlendshapeVals` are passed by reference, because values are updated
+            calc.CalcBlendshapeValue(overallBlendshapes: ref overallBlendshapes,
+                curFrameBlendshapeVals: ref curFrameBlendshapeVals,
+                frameDataOpenFace: frameDataOpenFace, frameDataAudio: frameDataAudio,
+                mappedBlendshapes: mappedBlendshapes, blendshapeMovingAverage: blendshapeMovingAverage,
+                blendDictStringToInt: blendDictStringToInt, doModulation: doModulation);
 
             hasNewDataUpdate = false;
             hasNewBlendshapeVals = true;
@@ -154,6 +147,15 @@ public class FaceAnimator : MonoBehaviour
     public void OnAudioDataUpdated(AudioDataFrame lastDataset)
     {
         frameDataAudio = lastDataset;
+        // check if sufficient time has past to modulate blendshape value
+        if (!(frameDataAudio.totalVoicedRegionNum > 10))
+        {
+            doModulation = true;
+        }
+        else
+        {
+            doModulation = false;
+        }
     }
 
     public void HookIntoZeroMQRelay()
@@ -189,13 +191,13 @@ public class FaceAnimator : MonoBehaviour
              }
          }*/
 
-        //foreach (var blendshape in LipSyncComponent.LaughterBlendTargets)
-        //{
-        //    if (skinnedMeshRenderer.GetBlendShapeWeight(blendDictStringToInt[blendshape]) > speakingThreshold)
-        //    {
-        //        return true;
-        //    }
-        //}
+        // foreach (var blendshape in LipSyncComponent.LaughterBlendTargets)
+        // {
+        //     if (skinnedMeshRenderer.GetBlendShapeWeight(blendDictStringToInt[blendshape]) > speakingThreshold)
+        //     {
+        //         return true;
+        //     }
+        // }
 
         return false;
     }

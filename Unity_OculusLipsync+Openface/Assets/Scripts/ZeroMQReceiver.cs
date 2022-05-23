@@ -12,7 +12,7 @@ public abstract class ZeroMQReceiver : MonoBehaviour
     protected string OriginPort;
     protected bool ListenerThreadCancelled;
 
-    protected readonly ConcurrentQueue<List<string>> ZeroMQQueue = new ConcurrentQueue<List<string>>();
+    protected readonly ConcurrentQueue<List<string>> ZeroMQQueueOpenFace = new ConcurrentQueue<List<string>>();
     protected readonly ConcurrentQueue<List<string>> ZeroMQQueueAudio = new ConcurrentQueue<List<string>>();
 
     protected abstract void ListenerWork();

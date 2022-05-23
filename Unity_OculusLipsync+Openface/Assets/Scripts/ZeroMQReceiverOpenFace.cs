@@ -21,10 +21,10 @@ public class ZeroMQReceiverOpenFace : ZeroMQReceiver
 
     void Update()
     {
-        while (!ZeroMQQueue.IsEmpty)
+        while (!ZeroMQQueueOpenFace.IsEmpty)
         {
             List<string> msg_list;
-            if (ZeroMQQueue.TryDequeue(out msg_list))
+            if (ZeroMQQueueOpenFace.TryDequeue(out msg_list))
             {
                 NewZeroMQMessageReceivedEventOpenFace?.Invoke(msg_list);
             }
@@ -70,7 +70,7 @@ public class ZeroMQReceiverOpenFace : ZeroMQReceiver
 
                 if (msg_list.Count > 0)
                 {
-                    ZeroMQQueue.Enqueue(msg_list);
+                    ZeroMQQueueOpenFace.Enqueue(msg_list);
                 }
             }
 
